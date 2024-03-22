@@ -117,8 +117,8 @@ if __name__ == '__main__':
 
    var = features.var(1)
    std = features.std(1)
-   print('Variance:', var).reshape((features.shape[0], 1))
-   print('Std. dev.:', std).reshape((features.shape[0], 1))
+   print('Variance:', var.reshape((features.shape[0], 1)))
+   print('Std. dev.:', std.reshape((features.shape[0], 1)))
    print()
 
 
