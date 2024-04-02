@@ -6,7 +6,7 @@ Created on Sat Mar 30 03:23:36 2024
 @author: marcodonnarumma
 """
 
-import sklearn
+import sklearn.datasets
 import numpy
 import scipy.linalg
 import matplotlib.pyplot as plt
@@ -36,8 +36,8 @@ def computeLDACovMatrixes(D, labels):
    nclasses = 2
    mu = vcol(D.mean(1))
    
-   nc = [D[:, labels == i].shape[1] for i in range(nclasses)]
-   muClass = numpy.hstack([ vcol(D[:, labels == i].mean(1)) for i in range(nclasses)])
+   nc = [D[:, labels == (i+1)].shape[1] for i in range(nclasses)]
+   muClass = numpy.hstack([ vcol(D[:, labels == (i+1)].mean(1)) for i in range(nclasses)])
    
    N = D.shape[1] # total samples
    
@@ -56,7 +56,7 @@ def computeLDACovMatrixes(D, labels):
    SWc = 0
    SW = numpy.zeros((4,4))
    
-   DC = [numpy.subtract(D[:, labels == i], vcol(muClass[:, i])) for i in range(nclasses)]
+   DC = [numpy.subtract(D[:, labels == (i+1)], vcol(muClass[:, i])) for i in range(nclasses)]
     
    for i in range(nclasses):
        SWc = numpy.dot(DC[i], DC[i].T)
@@ -78,15 +78,15 @@ def LDA(D, labels, m):
 
 def plot_hist(D, L):
 
-    D0 = D[:, L==0] # false
-    D1 = D[:, L==1] # true
+    D0 = D[:, L==1] # false
+    D1 = D[:, L==2] # true
 
     plt.figure()
-    plt.hist(D0, bins = 100, density = True, alpha = 0.6, label = 'False')
-    plt.hist(D1, bins = 100, density = True, alpha = 0.6, label = 'True')
-        
+    plt.hist(D0[0, :], bins = 5, density = True, alpha = 0.6, label = "Versicolor")
+    plt.hist(D1[0, :], bins = 5, density = True, alpha = 0.6, label = "Virginica")
     plt.legend()
-    plt.tight_layout() # Use with non-default font size to keep axis label inside the figure
+
+        
     plt.show()
 
 if __name__ == '__main__':
@@ -102,5 +102,6 @@ if __name__ == '__main__':
     DPTR = LDA(DTR, LTR, 1) # LDA training set
     DPVA = LDA(DVAL, LVAL, 1) # LDA validation set
     plot_hist(DPTR, LTR)
+    plot_hist(DPVA, LVAL)
     
     
