@@ -32,7 +32,7 @@ def split_db_2to1(D, L, seed=0):
     LVAL = L[idxTest]
     return (DTR, LTR), (DVAL, LVAL)
 
-def computeLDACovMatrixes(D, labels):
+def computeLDACovMatrixes(D, labels, numfeatures):
    nclasses = 2
    mu = vcol(D.mean(1))
    
@@ -43,7 +43,7 @@ def computeLDACovMatrixes(D, labels):
    
    # calculate SB
    
-   SBc = numpy.zeros((4,4))
+   SBc = numpy.zeros((numfeatures,numfeatures))
    
    for i in range(nclasses):
        d = numpy.subtract(vcol(muClass[:, i]), mu)
@@ -54,7 +54,7 @@ def computeLDACovMatrixes(D, labels):
    # calculate SW
    
    SWc = 0
-   SW = numpy.zeros((4,4))
+   SW = numpy.zeros((numfeatures,numfeatures))
    
    DC = [numpy.subtract(D[:, labels == (i+1)], vcol(muClass[:, i])) for i in range(nclasses)]
     
@@ -66,15 +66,42 @@ def computeLDACovMatrixes(D, labels):
     
    return SB, SW
 
-def LDA(D, labels, m):
+def LDA(D, labels, m, numfeatures):
     
-    SB, SW = computeLDACovMatrixes(D, labels)
+    SB, SW = computeLDACovMatrixes(D, labels, numfeatures)
     s, U = scipy.linalg.eigh(SB, SW)
     W = U[:, ::-1][:, 0:m]
     
-    DP = numpy.dot(W.T, D)
+    # return W (which columns are the selected directions)
    
-    return DP
+    return W
+
+def PCA(D, DSize, m):
+    
+    # First I calculate the dataset mean and I center the data
+    # (it's always worth centering the data before applying PCA) 
+    
+    mu = D.mean(1)
+    DC = D - vcol(mu)
+    
+    CovMatrix = 1 / DSize * numpy.dot(DC,DC.T)
+    
+    # Once we have computed the data covariance matrix, 
+    # we need to compute its eigenvectors and eigenvalues in order to find
+    # the directions with most variance
+    
+    s, U = numpy.linalg.eigh(CovMatrix)
+    
+    # which returns the eigenvalues, sorted from smallest to largest, 
+    # and the corresponding eigenvectors (columns of U).
+    
+    # The m leading eigenvectors can be retrieved from U 
+    # (here we also reverse the order of the columns of U so 
+    # that the leading eigenvectors are in the first m columns):
+        
+    P = U[:, ::-1][:, 0:m]
+    
+    return P
 
 def plot_hist(D, L):
 
@@ -99,9 +126,93 @@ if __name__ == '__main__':
     # DVAL and LVAL are validation data and labels
     
     (DTR, LTR), (DVAL, LVAL) = split_db_2to1(D, L)
-    DPTR = LDA(DTR, LTR, 1) # LDA training set
-    DPVA = LDA(DVAL, LVAL, 1) # LDA validation set
+    
+    """ 
+    # The following code builds an LDA classifier (no PCA)
+    
+    W = LDA(DTR, LTR, 1) # LDA directions training set
+    DPTR = numpy.dot(W.T, DTR)  # D projected on W
+    DPVA = numpy.dot(W.T, DVAL) # DVAL projected on W
     plot_hist(DPTR, LTR)
     plot_hist(DPVA, LVAL)
+    
+    # calculate the threshold that we will use to perform inference
+    # based on the mean of the classes after applying LDA on the training set
+    
+    threshold = (DPTR[0, LTR==1].mean() + DPTR[0, LTR==2].mean()) / 2.0
+    
+    # we will now predict the labels for our validation set
+    
+    PREDVALSET = numpy.zeros(shape=LVAL.shape, dtype=numpy.int32)
+    PREDVALSET[DPVA[0] >= threshold] = 2
+    PREDVALSET[DPVA[0] < threshold] = 1
+    
+    errors = numpy.sum(PREDVALSET != LVAL)
+    
+    """
+    
+    """
+    
+    # The following code uses the first PCA direction
+    
+    P = PCA(DTR, DTR.shape[1], 1)
+    DPTR = numpy.dot(P.T, DTR)
+    DPVA = numpy.dot(P.T, DVAL)
+    threshold = (DPTR[0, LTR==1].mean() + DPTR[0, LTR==2].mean()) / 2.0
+    
+    # we will now predict the labels for our validation set
+    
+    PREDVALSET = numpy.zeros(shape=LVAL.shape, dtype=numpy.int32)
+    PREDVALSET[DPVA[0] >= threshold] = 2
+    PREDVALSET[DPVA[0] < threshold] = 1
+    
+    errors = numpy.sum(PREDVALSET != LVAL)
+    
+    # PCA alone seems to do very bad. 30 errors out of 34? Maybe I made mistakes?
+    
+    """
+    
+    """
+    
+    
+    # The following code uses PCA + LDA
+    
+    numfeatures = 2
+    
+    P = PCA(DTR, DTR.shape[1], numfeatures)
+    DTRPCA = numpy.dot(P.T, DTR)
+    DVALPCA = numpy.dot(P.T, DVAL)
+    W = LDA(DTRPCA, LTR, 1, numfeatures=numfeatures) 
+    DTRLDA = numpy.dot(W.T, DTRPCA)  
+    DVALLDA = numpy.dot(W.T, DVALPCA) 
+    
+    threshold = (DTRLDA[0, LTR==1].mean() + DTRLDA[0, LTR==2].mean()) / 2.0
+    
+    # we will now predict the labels for our validation set
+    
+    PREDVALSET = numpy.zeros(shape=LVAL.shape, dtype=numpy.int32)
+    PREDVALSET[DVALLDA[0] >= threshold] = 2
+    PREDVALSET[DVALLDA[0] < threshold] = 1
+    
+    errors = numpy.sum(PREDVALSET != LVAL)
+    
+    print(errors)
+    
+    # PCA doesn't seem to improve our predictions
+    
+    """
+    
+    
+    
+    
+    
+    
+    
+    
+
+    
+    
+    
+    
     
     
