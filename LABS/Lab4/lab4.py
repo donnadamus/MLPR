@@ -28,7 +28,21 @@ def logpdf_GAU_ND(X, mu, C): # MVG
         Y.append(logy)
     return np.array(Y).ravel()
 
+def computeLogLikelihood(X, mu, C):
+    return logpdf_GAU_ND(X, mu, C).sum()
+
+# muml is the empirical dataset mean, varml is the empirical dataset covariance
+
+def computeMaxLikelihood(X):
+    muml = vcol(1/X.shape[1] * X.sum(axis=1))   # axis = 1 somma riga
+    varml = 1/X.shape[1] * (np.dot((X - muml),(X - muml).T))
+    return muml, varml
+
 if __name__ == '__main__':
+
+    # ---------- Multivariate Gaussian Density ----------
+
+    """
 
     plt.figure()
     XPlot = np.linspace(-8, 12, 1000)
@@ -37,6 +51,10 @@ if __name__ == '__main__':
     Y = np.exp(logpdf_GAU_ND(vrow(XPlot), mu, C))
     plt.plot(XPlot.ravel(), Y)
     plt.show()
+
+    """
+
+    """
 
     # check solution for multi samples but one dimensional (one variable only)
     pdfSol = np.load('Solution/llGAU.npy')
@@ -50,3 +68,41 @@ if __name__ == '__main__':
     pdfSol = np.load('Solution/llND.npy')
     pdfGau = logpdf_GAU_ND(XND, mu, C)
     print(np.abs(pdfSol - pdfGau).max())
+
+    """
+
+    # ---------- Maximum likelihood estimate ----------
+
+    """
+
+    XND = np.load('Solution/XND.npy')
+    muml, varml = computeMaxLikelihood(XND)
+    print("muml: ")
+    print(muml)
+    print("varml: ")
+    print(varml)
+
+    ll = computeLogLikelihood(XND, muml, varml)
+    print(ll)
+
+    """
+
+    X1D = np.load('Solution/X1D.npy')
+    muml, varml = computeMaxLikelihood(X1D)
+    print("muml: ")
+    print(muml)
+    print("varml: ")
+    print(varml)
+
+    # plot dataset and estimated density
+    plt.figure()
+    plt.hist(X1D.ravel(), bins=50, density=True)
+    XPlot = np.linspace(-8, 12, 1000)
+    plt.plot(XPlot.ravel(), np.exp(logpdf_GAU_ND(vrow(XPlot), muml, varml)))
+    # plt.show()
+    
+    ll = computeLogLikelihood(X1D, muml, varml)
+    print(ll)
+
+
+    
