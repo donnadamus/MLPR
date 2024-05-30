@@ -81,19 +81,35 @@ if __name__ == '__main__':
 
     """
 
-    # densities per each per each class
+    # densities per each sample per each class
 
     S = np.exp(loglikelyhoodperclass(ml_estimates=ml_estimates, X=DTE))
 
-    # class posterior probabilities
+    # joint distribution for samples and classes, where 1/3 is the prior probability
 
     SJoint = S * 1/3
 
-    # check solution for class posterior probabilities
+    # check solution for joint distribution
     SolutionSJoint = np.load('Solution/SJoint_MVG.npy')
-    print(np.abs(SJoint - SolutionSJoint).max())
+    # print(np.abs(SJoint - SolutionSJoint).max())
 
-    
+    # now we compute class posterior probabilities
+
+    # sum densities of all the classes for every sample
+
+    SMarginal = vrow(SJoint.sum(0))
+
+    SPost = SJoint / SMarginal
+
+    # SPost.shape is (3, 50)
+    # On the rows the class number, while on the columns the samples
+
+    PVAL = SPost.argmax(0)
+
+    print("MVG - Error rate: %.1f%%" % ((PVAL != LTE).sum() / float(LTE.size) * 100))
+
+
+
 
 
     
