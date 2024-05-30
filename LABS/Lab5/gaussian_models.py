@@ -1,5 +1,7 @@
 import sklearn.datasets
 import numpy as np
+import scipy.special
+
 
 def vcol(x):
     return x.reshape((x.size, 1))
@@ -56,6 +58,22 @@ def loglikelyhoodperclass(ml_estimates, X):
     
     return np.array(toReturn)
 
+# Compute per-class log-densities. We assume classes are labeled from 0 to C-1. The parameters of each class are in hParams (for class i, hParams[i] -> (mean, cov))
+def compute_log_likelihood_Gau(D, hParams):
+
+    S = np.zeros((len(hParams), D.shape[1]))
+    for lab in range(S.shape[0]):
+        S[lab, :] = logpdf_GAU_ND(D, hParams[lab][0], hParams[lab][1])
+    return S
+
+
+# compute log-postorior matrix from log-likelihood matrix and prior array
+def compute_logPosterior(S_logLikelihood, v_prior):
+    SJoint = S_logLikelihood + vcol(np.log(v_prior))
+    SMarginal = vrow(scipy.special.logsumexp(SJoint, axis=0))
+    SPost = SJoint - SMarginal
+    return SPost
+
 
 
 
@@ -75,11 +93,9 @@ if __name__ == '__main__':
 
     """
 
-    Given the estimated model, we now turn our attention towards inference for a test sample x. As we
-    have seen, the final goal is to compute class posterior probabilities P(c|x). We split the process in three
-    stages. The first step consists in computing, for each test sample, the likelihoods
-
-    """
+    # Given the estimated model, we now turn our attention towards inference for a test sample x. As we
+    # have seen, the final goal is to compute class posterior probabilities P(c|x). We split the process in three
+    # stages. The first step consists in computing, for each test sample, the likelihoods
 
     # densities per each sample per each class
 
@@ -107,6 +123,17 @@ if __name__ == '__main__':
     PVAL = SPost.argmax(0)
 
     print("MVG - Error rate: %.1f%%" % ((PVAL != LTE).sum() / float(LTE.size) * 100))
+
+    """
+
+    S_logLikelihood = compute_log_likelihood_Gau(DTE, ml_estimates)
+
+    S_logPost = compute_logPosterior(S_logLikelihood, np.ones(3)/3.)
+    # print ("Max absolute error w.r.t. pre-computed solution - log-posterior matrix")
+    # print (np.abs(S_logPost - np.load('Solution/logPosterior_MVG.npy')).max())
+    # Predict labels
+    PVAL = S_logPost.argmax(0)
+    print("MVG - Error rate: %.1f%%" % ((PVAL != LTE).sum() / float(LTE.size) * 100)) 
 
 
 
