@@ -83,7 +83,17 @@ if __name__ == '__main__':
 
     # densities per each per each class
 
-    llperclass = np.exp(loglikelyhoodperclass(ml_estimates=ml_estimates, X=DTE))
+    S = np.exp(loglikelyhoodperclass(ml_estimates=ml_estimates, X=DTE))
+
+    # class posterior probabilities
+
+    SJoint = S * 1/3
+
+    # check solution for class posterior probabilities
+    SolutionSJoint = np.load('Solution/SJoint_MVG.npy')
+    print(np.abs(SJoint - SolutionSJoint).max())
+
+    
 
 
     
