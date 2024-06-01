@@ -74,6 +74,17 @@ def compute_logPosterior(S_logLikelihood, v_prior):
     SPost = SJoint - SMarginal
     return SPost
 
+# Compute a dictionary of ML parameters for each class - Naive Bayes version of the model
+# We compute the full covariance matrix and then extract the diagonal. Efficient implementations would work directly with just the vector of variances (diagonal of the covariance matrix)
+def Gau_Naive_ML_estimates(D, L):
+    labelSet = set(L)
+    hParams = {}
+    for lab in labelSet:
+        DX = D[:, L==lab]
+        mu, C = compute_mu_C(DX)
+        hParams[lab] = (mu, C * np.eye(D.shape[0]))
+    return hParams
+
 
 
 
@@ -87,6 +98,9 @@ if __name__ == '__main__':
 
     # print(DTE.shape) # shape = (4, 50)
     # print(LTR.shape) # shape = (50, )
+
+
+    # --------- MVG STANDARD CLASSIFIER ---------
 
     # the covariances matrixes will not be diagonal because the features are not independent in the iris dataset
     ml_estimates = Gau_MVG_ML_estimates(DTR, LTR)
@@ -134,6 +148,26 @@ if __name__ == '__main__':
     # Predict labels
     PVAL = S_logPost.argmax(0)
     print("MVG - Error rate: %.1f%%" % ((PVAL != LTE).sum() / float(LTE.size) * 100)) 
+
+    print()
+
+    # --------- NAIVE BAYES ---------
+
+        
+    hParams_Naive = Gau_Naive_ML_estimates(DTR, LTR)
+    for lab in [0,1,2]:
+        print('Naive Bayes Gaussian - Class', lab)
+        print(hParams_Naive[lab][0])
+        print(hParams_Naive[lab][1])
+        print()
+
+    S_logLikelihood = compute_log_likelihood_Gau(DTE, hParams_Naive)
+    S_logPost = compute_logPosterior(S_logLikelihood, np.ones(3)/3.)
+    PVAL = S_logPost.argmax(0)
+    print("Naive Bayes Gaussian - Error rate: %.1f%%" % ((PVAL != LTE).sum() / float(LTE.size) * 100))
+        
+    print()
+
 
 
 
