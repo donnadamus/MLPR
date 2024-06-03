@@ -39,6 +39,11 @@ def compute_mu_C(D):
     C = ((D-mu) @ (D-mu).T) / float(D.shape[1])
     return mu, C
 
+def compute_mu_C_Tied(D):
+    mu = vcol(D.mean(1))
+    C = ((D-mu) @ (D-mu).T)
+    return mu, C
+
 # This functions returns the density for an array of samples X
 def logpdf_GAU_ND(X, mu, C): # MVG
     Y = []
@@ -84,6 +89,27 @@ def Gau_Naive_ML_estimates(D, L):
         mu, C = compute_mu_C(DX)
         hParams[lab] = (mu, C * np.eye(D.shape[0]))
     return hParams
+
+# Compute a dictionary of ML parameters for each class
+def Gau_Tied_ML_estimates(D, L):
+    labelSet = set(L)
+    hParams = {}
+    for lab in labelSet:
+        DX = D[:, L==lab]
+        hParams[lab] = compute_mu_C_Tied(DX)
+
+    C = np.sum([hParams[i][1] for i in labelSet], axis=0)
+    C = C / len(L)
+
+    for lab in labelSet:
+        muc, _ = hParams[lab]
+        hParams[lab] = muc, C
+
+    return hParams
+
+
+def load_iris():
+    return sklearn.datasets.load_iris()['data'].T, sklearn.datasets.load_iris()['target']
 
 
 
@@ -167,6 +193,53 @@ if __name__ == '__main__':
     print("Naive Bayes Gaussian - Error rate: %.1f%%" % ((PVAL != LTE).sum() / float(LTE.size) * 100))
         
     print()
+
+    # --------- TIED GAUSSIAN ---------
+
+    hParams_Tied = Gau_Tied_ML_estimates(DTR, LTR)
+
+    for lab in [0,1,2]:
+        print('Tied Gaussian - Class', lab)
+        print(hParams_Tied[lab][0])
+        print(hParams_Tied[lab][1])
+        print()
+        
+
+    S_logLikelihood = compute_log_likelihood_Gau(DTE, hParams_Tied)
+    S_logPost = compute_logPosterior(S_logLikelihood, np.ones(3)/3.)
+    PVAL = S_logPost.argmax(0)
+    print("Tied Gaussian - Error rate: %.1f%%" % ((PVAL != LTE).sum() / float(LTE.size) * 100))
+
+    print()
+
+    # --------- BINARY TASKS ---------
+
+    DIris, LIris = load_iris()
+
+
+    D = DIris[:, LIris != 0]
+    L = LIris[LIris != 0]
+    (DTR, LTR), (DVAL, LVAL) = split_db_2to1(D, L)
+
+    hParams_MVG = Gau_MVG_ML_estimates(DTR, LTR)
+    LLR = logpdf_GAU_ND(DVAL, hParams_MVG[2][0], hParams_MVG[2][1]) - logpdf_GAU_ND(DVAL, hParams_MVG[1][0], hParams_MVG[1][1])
+
+    PVAL = np.zeros(DVAL.shape[1], dtype=np.int32)
+    TH = 0
+    PVAL[LLR >= TH] = 2
+    PVAL[LLR < TH] = 1
+    print("MVG - Error rate: %.1f%%" % ((PVAL != LVAL).sum() / float(LVAL.size) * 100))     
+
+    hParams_Tied = Gau_Tied_ML_estimates(DTR, LTR)
+    LLR = logpdf_GAU_ND(DVAL, hParams_Tied[2][0], hParams_Tied[2][1]) - logpdf_GAU_ND(DVAL, hParams_Tied[1][0], hParams_Tied[1][1])
+
+    PVAL = np.zeros(DVAL.shape[1], dtype=np.int32)
+    TH = 0
+    PVAL[LLR >= TH] = 2
+    PVAL[LLR < TH] = 1
+    print("Tied - Error rate: %.1f%%" % ((PVAL != LVAL).sum() / float(LVAL.size) * 100))   
+
+
 
 
 
