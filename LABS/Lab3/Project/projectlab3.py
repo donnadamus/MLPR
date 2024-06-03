@@ -193,8 +193,6 @@ if __name__ == '__main__':
     
     (DTR, LTR), (DVAL, LVAL) = split_db_2to1(dataset, labels)
     
-    """
-    
     # --- Third question ---
     
     # The following code builds an LDA classifier (no PCA)
@@ -241,8 +239,6 @@ if __name__ == '__main__':
     # Error rate is equal to 9.30%
     
     print("Error rate: ", errors / LVAL.size * 100)
-    
-    """
     
     # --- Fifth question ---
     
