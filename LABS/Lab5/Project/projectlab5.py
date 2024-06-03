@@ -143,6 +143,23 @@ if __name__ == '__main__':
 
     # ----- NOW ANALYZE COVARIANCE MATRIXES -----
 
+
+    hParams_MVG = Gau_MVG_ML_estimates(DTR, LTR)
+
+    C0 = hParams_MVG[0][1]
+    C1 = hParams_MVG[1][1]
+
+    Corr0 = C0 / ( vcol(C0.diagonal()**0.5) * vrow(C0.diagonal()**0.5) )
+    Corr1 = C1 / ( vcol(C1.diagonal()**0.5) * vrow(C1.diagonal()**0.5) )
+
+    print("Correlation matrix class False: ")
+    print(Corr0)
+
+    print("Correlation matrix class True: ")
+    print(Corr1)
+
+    # The features are weakly correlated, accordingly with the results whe get from Naive Bayes
+
     
     
 
