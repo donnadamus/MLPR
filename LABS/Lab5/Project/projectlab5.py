@@ -122,6 +122,9 @@ def Gau_Naive_ML_estimates(D, L):
     return hParams
 
 if __name__ == '__main__':
+
+    ##### TODO CHECK RESULTS OF PCA PART OF THIS PROJECT LAB 
+    
     dataset, labels = load("trainData.txt")
 
     (DTR, LTR), (DVAL, LVAL) = split_db_2to1(dataset, labels)
