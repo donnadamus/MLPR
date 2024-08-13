@@ -187,3 +187,24 @@ if __name__ == '__main__':
     # matplotlib.pyplot.show()
 
 
+    # ----------- Bayes error plot COMPARING CLASSIFIERS -----------
+
+    commedia_llr_binary = numpy.load('../Data/commedia_llr_infpar_eps1.npy')
+    commedia_labels_binary = numpy.load('../Data/commedia_labels_infpar_eps1.npy')
+
+    actDCF = []
+    minDCF = []
+    for effPrior in effPriors:
+        # Alternatively, we can compute actDCF directly from compute_empirical_Bayes_risk_binary_llr_optimal_decisions(commedia_llr_binary, commedia_labels_binary, effPrior, 1.0, 1.0)
+        commedia_predictions_binary = compute_optimal_Bayes_binary_llr(commedia_llr_binary, effPrior, 1.0, 1.0)
+        actDCF.append(compute_empirical_Bayes_risk_binary(commedia_predictions_binary, commedia_labels_binary, effPrior, 1.0, 1.0))
+        minDCF.append(compute_minDCF_binary_slow(commedia_llr_binary, commedia_labels_binary, effPrior, 1.0, 1.0))
+
+    matplotlib.pyplot.plot(effPriorLogOdds, actDCF, label='actDCF eps 1.0', color='y')
+    matplotlib.pyplot.plot(effPriorLogOdds, minDCF, label='DCF eps 1.0', color='c')
+    matplotlib.pyplot.ylim([0, 1.1])
+
+    matplotlib.pyplot.legend()
+    matplotlib.pyplot.show()
+
+
