@@ -41,6 +41,72 @@ def compute_empirical_Bayes_risk_binary(predictedLabels, classLabels, prior, Cfn
         return bayesError / numpy.minimum(prior * Cfn, (1-prior)*Cfp)
     return bayesError
 
+# Compute minDCF (slow version, loop over all thresholds recomputing the costs)
+# Practical explanation of how minDCF is computed
+def compute_minDCF_binary_slow(llr, classLabels, prior, Cfn, Cfp, returnThreshold=False):
+    # llrSorter = numpy.argsort(llr) 
+    # llrSorted = llr[llrSorter] # We sort the llrs
+    # classLabelsSorted = classLabels[llrSorter] # we sort the labels so that they are aligned to the llrs
+    # We can remove this part
+    llrSorted = llr # In this function (slow version) sorting is not really necessary, since we re-compute the predictions and confusion matrices everytime
+    
+    thresholds = numpy.concatenate([numpy.array([-numpy.inf]), llrSorted, numpy.array([numpy.inf])])
+    dcfMin = None
+    dcfTh = None
+    for th in thresholds:
+        predictedLabels = numpy.int32(llr > th)
+        dcf = compute_empirical_Bayes_risk_binary(predictedLabels, classLabels, prior, Cfn, Cfp)
+        if dcfMin is None or dcf < dcfMin:
+            dcfMin = dcf
+            dcfTh = th
+    if returnThreshold:
+        return dcfMin, dcfTh
+    else:
+        return dcfMin
+    
+# Auxiliary function, returns all combinations of Pfp, Pfn corresponding to all possible thresholds
+# We do not consider -inf as threshld, since we use as assignment llr > th, so the left-most score corresponds to all samples assigned to class 1 already
+def compute_Pfn_Pfp_allThresholds_fast(llr, classLabels):
+    llrSorter = numpy.argsort(llr)
+    llrSorted = llr[llrSorter] # We sort the llrs
+    classLabelsSorted = classLabels[llrSorter] # we sort the labels so that they are aligned to the llrs
+
+    Pfp = []
+    Pfn = []
+    
+    nTrue = (classLabelsSorted==1).sum()
+    nFalse = (classLabelsSorted==0).sum()
+    nFalseNegative = 0 # With the left-most theshold all samples are assigned to class 1
+    nFalsePositive = nFalse
+    
+    Pfn.append(nFalseNegative / nTrue)
+    Pfp.append(nFalsePositive / nFalse)
+    
+    for idx in range(len(llrSorted)):
+        if classLabelsSorted[idx] == 1:
+            nFalseNegative += 1 # Increasing the threshold we change the assignment for this llr from 1 to 0, so we increase the error rate
+        if classLabelsSorted[idx] == 0:
+            nFalsePositive -= 1 # Increasing the threshold we change the assignment for this llr from 1 to 0, so we decrease the error rate
+        Pfn.append(nFalseNegative / nTrue)
+        Pfp.append(nFalsePositive / nFalse)
+
+    #The last values of Pfn and Pfp should be 1.0 and 0.0, respectively
+    #Pfn.append(1.0) # Corresponds to the numpy.inf threshold, all samples are assigned to class 0
+    #Pfp.append(0.0) # Corresponds to the numpy.inf threshold, all samples are assigned to class 0
+    llrSorted = numpy.concatenate([-numpy.array([numpy.inf]), llrSorted])
+
+    # In case of repeated scores, we need to "compact" the Pfn and Pfp arrays (i.e., we need to keep only the value that corresponds to an actual change of the threshold
+    PfnOut = []
+    PfpOut = []
+    thresholdsOut = []
+    for idx in range(len(llrSorted)):
+        if idx == len(llrSorted) - 1 or llrSorted[idx+1] != llrSorted[idx]: # We are indeed changing the threshold, or we have reached the end of the array of sorted scores
+            PfnOut.append(Pfn[idx])
+            PfpOut.append(Pfp[idx])
+            thresholdsOut.append(llrSorted[idx])
+            
+    return numpy.array(PfnOut), numpy.array(PfpOut), numpy.array(thresholdsOut) # we return also the corresponding thresholds
+
 if __name__ == '__main__':
 
     # ----------- Confusion Matrices -----------
@@ -59,7 +125,7 @@ if __name__ == '__main__':
 
     print(cm)
 
-    # Binary task
+    # ----------- Binary task -----------
     print()
     print("-"*40)
     print()
@@ -80,5 +146,44 @@ if __name__ == '__main__':
 
         ebrisk = compute_empirical_Bayes_risk_binary(predicted_labels, commedia_labels_binary, prior, Cfn, Cfp, normalize=True)
         print("Empirical Bayes Risk / DCF (normalize=True): " , ebrisk)
+
+    # ----------- minDCF -----------
+
+    print()
+    print("-"*40)
+    print()
+    print("minDCF")
+
+    for prior, Cfn, Cfp in [(0.5, 1, 1), (0.8, 1, 1), (0.5, 10, 1), (0.8, 1, 10)]:
+        print()
+        # prior is referring to class 1 (true)
+        print('Prior', prior, '- Cfn', Cfn, '- Cfp', Cfp)
+        minDCF, minDCFth = compute_minDCF_binary_slow(commedia_llr_binary, commedia_labels_binary, prior, Cfn, Cfp, returnThreshold=True)
+        print(minDCF)
+
+    # ----------- ROC plot -----------
+    
+    Pfn, Pfp, _ = compute_Pfn_Pfp_allThresholds_fast(commedia_llr_binary, commedia_labels_binary)
+    matplotlib.pyplot.figure(0)
+    matplotlib.pyplot.plot(Pfp, 1-Pfn)
+    # matplotlib.pyplot.show()
+
+    # ----------- Bayes error plot -----------
+
+    effPriorLogOdds = numpy.linspace(-3, 3, 21)
+    effPriors = 1.0 / (1.0 + numpy.exp(-effPriorLogOdds))   # get the corresponding priors
+    actDCF = []
+    minDCF = []
+    for effPrior in effPriors:
+        commedia_predictions_binary = compute_optimal_Bayes_binary_llr(commedia_llr_binary, effPrior, 1.0, 1.0)
+        actDCF.append(compute_empirical_Bayes_risk_binary(commedia_predictions_binary, commedia_labels_binary, effPrior, 1.0, 1.0))
+
+        # I pass to the function the llr directly. No predictions to be made, we scan every possible score and we use it as a threshold
+        minDCF.append(compute_minDCF_binary_slow(commedia_llr_binary, commedia_labels_binary, effPrior, 1.0, 1.0))
+    matplotlib.pyplot.figure(1)
+    matplotlib.pyplot.plot(effPriorLogOdds, actDCF, label='actDCF eps 0.001', color='r')
+    matplotlib.pyplot.plot(effPriorLogOdds, minDCF, label='DCF eps 0.001', color='b')
+    matplotlib.pyplot.ylim([0, 1.1])
+    # matplotlib.pyplot.show()
 
 
