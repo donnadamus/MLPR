@@ -1,11 +1,42 @@
 import numpy as np, numpy
 import matplotlib.pyplot as plt
+import matplotlib
 
 def vcol(v):
     return v.reshape((v.size, 1))
     
 def vrow(v):
     return v.reshape((1, v.size))
+
+def Projection(directions, dataset):
+    return np.dot(directions.T, dataset)
+
+def PCA(D, DSize, m):
+    
+    # First I calculate the dataset mean and I center the data
+    # (it's always worth centering the data before applying PCA) 
+    
+    mu = D.mean(1)
+    DC = D - vcol(mu)
+    
+    CovMatrix = 1 / DSize * np.dot(DC,DC.T)
+    
+    # Once we have computed the data covariance matrix, 
+    # we need to compute its eigenvectors and eigenvalues in order to find
+    # the directions with most variance
+    
+    s, U = np.linalg.eigh(CovMatrix)
+    
+    # which returns the eigenvalues, sorted from smallest to largest, 
+    # and the corresponding eigenvectors (columns of U).
+    
+    # The m leading eigenvectors can be retrieved from U 
+    # (here we also reverse the order of the columns of U so 
+    # that the leading eigenvectors are in the first m columns):
+        
+    P = U[:, ::-1][:, 0:m]
+    
+    return P
 
 def compute_mu_C(D):
     mu = vcol(D.mean(1))
@@ -146,6 +177,8 @@ if __name__ == '__main__':
     # POSITIVE = GENUINE
     # NEGATIVE = FAKE
 
+    # TODO, the PCA results have to be verified. last part with the plot has to be verified as well
+
     # ----------- Effective priors -----------
 
     for prior, Cfn, Cfp in [(0.5, 1.0, 1.0), (0.9, 1.0, 1.0), (0.1, 1.0, 1.0), (0.5, 1.0, 9.0), (0.5, 9.0, 1.0)]:
@@ -165,7 +198,11 @@ if __name__ == '__main__':
 
     (DTR, LTR), (DVAL, LVAL) = split_db_2to1(dataset, labels)
 
+    """
+
     # ----------- NO PCA APPLIED -----------
+
+    # the NO PCA results have been verified and are correct
 
     print('\n ----------- NO PCA APPLIED ----------- \n')
 
@@ -181,7 +218,7 @@ if __name__ == '__main__':
         cm = compute_confusion_matrix(predicted_labels_mvg, LVAL)
         print(cm)
         print("DCF (MVG): " , actual_dcf_mvg)
-        minDCF_mvg, minDCFth = compute_minDCF_binary_slow(LLR_mvg, LVAL, prior, Cfn, Cfp, returnThreshold=True)
+        minDCF_mvg, minDCFth = compute_minDCF_binary_slow(LLR_mvg, LVAL, effective_prior, Cfn, Cfp, returnThreshold=True)
         print("minDCF (MVG): ", minDCF_mvg)
 
         loss_mvg = (actual_dcf_mvg - minDCF_mvg) / minDCF_mvg * 100
@@ -196,7 +233,7 @@ if __name__ == '__main__':
         cm = compute_confusion_matrix(predicted_labels_tied, LVAL)
         print(cm)
         print("DCF (Tied): " , actual_dcf_tied)
-        minDCF_tied, minDCFth = compute_minDCF_binary_slow(LLR_tied, LVAL, prior, Cfn, Cfp, returnThreshold=True)
+        minDCF_tied, minDCFth = compute_minDCF_binary_slow(LLR_tied, LVAL, effective_prior, Cfn, Cfp, returnThreshold=True)
         print("minDCF (Tied): ", minDCF_tied)
 
         loss_tied = (actual_dcf_tied - minDCF_tied) / minDCF_tied * 100
@@ -210,9 +247,161 @@ if __name__ == '__main__':
         cm = compute_confusion_matrix(predicted_labels_naive, LVAL)
         print(cm)
         print("DCF (Naive): " , actual_dcf_naive)
-        minDCF_naive, minDCFth = compute_minDCF_binary_slow(LLR_naive, LVAL, prior, Cfn, Cfp, returnThreshold=True)
+        minDCF_naive, minDCFth = compute_minDCF_binary_slow(LLR_naive, LVAL, effective_prior, Cfn, Cfp, returnThreshold=True)
         print("minDCF (MVG): ", minDCF_naive)
 
         loss_naive = (actual_dcf_naive - minDCF_naive) / minDCF_naive * 100
         print("DCF Loss (Naive): ", loss_naive)
+
+    # ----------- PCA APPLIED -----------
+
+    # TODO this results have to be verified. I get a different result compared to the guy that posted on the group, but it might be his mistake
+
+    print('\n ----------- PCA APPLIED ----------- \n')
+
+    # m (numdirections) varies between 1 and 6
+
+    for numdirections in range(1, 7):
+        print("!!!!!! m = %d !!!!!!" % numdirections)
+        P = PCA(DTR, DTR.shape[1], numdirections)
+        DTR_pca = Projection(P, DTR)
+        DVAL_pca = Projection(P, DVAL)
+
+        for effective_prior, Cfn, Cfp in [(0.1, 1.0, 1.0), (0.5, 1.0, 1.0), (0.9, 1.0, 1.0)]:
+            print('\n\n\n')
+            print("Effective prior: ", effective_prior)
+
+            hParams_MVG = Gau_MVG_ML_estimates(DTR_pca, LTR)
+            LLR_mvg = logpdf_GAU_ND(DVAL_pca, hParams_MVG[1][0], hParams_MVG[1][1]) - logpdf_GAU_ND(DVAL_pca, hParams_MVG[0][0], hParams_MVG[0][1])
+
+            predicted_labels_mvg = compute_optimal_Bayes_binary_llr(LLR_mvg, effective_prior, Cfn, Cfp)
+            actual_dcf_mvg = compute_empirical_Bayes_risk_binary(predicted_labels_mvg, LVAL, effective_prior, Cfn, Cfp, normalize=True)
+            cm = compute_confusion_matrix(predicted_labels_mvg, LVAL)
+            print(cm)
+            print("DCF (MVG): " , actual_dcf_mvg)
+            minDCF_mvg, minDCFth = compute_minDCF_binary_slow(LLR_mvg, LVAL, effective_prior, Cfn, Cfp, returnThreshold=True)
+            print("minDCF (MVG): ", minDCF_mvg)
+
+            loss_mvg = (actual_dcf_mvg - minDCF_mvg) / minDCF_mvg * 100
+            print("DCF Loss (MVG): ", loss_mvg)
+
+
+            hParams_Tied = Gau_Tied_ML_estimates(DTR_pca, LTR)
+            LLR_tied = logpdf_GAU_ND(DVAL_pca, hParams_Tied[1][0], hParams_Tied[1][1]) - logpdf_GAU_ND(DVAL_pca, hParams_Tied[0][0], hParams_Tied[0][1])
+
+            predicted_labels_tied = compute_optimal_Bayes_binary_llr(LLR_tied, effective_prior, Cfn, Cfp)
+            actual_dcf_tied = compute_empirical_Bayes_risk_binary(predicted_labels_tied, LVAL, effective_prior, Cfn, Cfp, normalize=True)
+            cm = compute_confusion_matrix(predicted_labels_tied, LVAL)
+            print(cm)
+            print("DCF (Tied): " , actual_dcf_tied)
+            minDCF_tied, minDCFth = compute_minDCF_binary_slow(LLR_tied, LVAL, effective_prior, Cfn, Cfp, returnThreshold=True)
+            print("minDCF (Tied): ", minDCF_tied)
+
+            loss_tied = (actual_dcf_tied - minDCF_tied) / minDCF_tied * 100
+            print("DCF Loss (Tied): ", loss_tied)
+
+            hParams_Naive = Gau_Naive_ML_estimates(DTR_pca, LTR)
+            LLR_naive = logpdf_GAU_ND(DVAL_pca, hParams_Naive[1][0], hParams_Naive[1][1]) - logpdf_GAU_ND(DVAL_pca, hParams_Naive[0][0], hParams_Naive[0][1])
+
+            predicted_labels_naive = compute_optimal_Bayes_binary_llr(LLR_naive, effective_prior, Cfn, Cfp)
+            actual_dcf_naive = compute_empirical_Bayes_risk_binary(predicted_labels_naive, LVAL, effective_prior, Cfn, Cfp, normalize=True)
+            cm = compute_confusion_matrix(predicted_labels_naive, LVAL)
+            print(cm)
+            print("DCF (Naive): " , actual_dcf_naive)
+            minDCF_naive, minDCFth = compute_minDCF_binary_slow(LLR_naive, LVAL, effective_prior, Cfn, Cfp, returnThreshold=True)
+            print("minDCF (MVG): ", minDCF_naive)
+
+            loss_naive = (actual_dcf_naive - minDCF_naive) / minDCF_naive * 100
+            print("DCF Loss (Naive): ", loss_naive)
+    
+    """
+    
+    # ----------- Bayes error plots -----------
+
+    # TODO check this part also
+
+    m = 1 # pca directions that gave the best results in the previous step
+
+    effPriorLogOdds = numpy.linspace(-4, 4, 21)
+    effPriors = 1.0 / (1.0 + numpy.exp(-effPriorLogOdds))   # get the corresponding priors
+
+
+    P = PCA(DTR, DTR.shape[1], m)
+    DTR_pca = Projection(P, DTR)
+    DVAL_pca = Projection(P, DVAL)
+
+    actDCF = []
+    minDCF = []
+
+    # we run this for 3 times (not optimal, we do it to simplify code)
+
+    # standard mvg
+
+    hParams_MVG = Gau_MVG_ML_estimates(DTR_pca, LTR)
+    LLR_mvg = logpdf_GAU_ND(DVAL_pca, hParams_MVG[1][0], hParams_MVG[1][1]) - logpdf_GAU_ND(DVAL_pca, hParams_MVG[0][0], hParams_MVG[0][1])
+
+    for effPrior in effPriors:
+        predicted_labels_mvg = compute_optimal_Bayes_binary_llr(LLR_mvg, effPrior, Cfn=1.0, Cfp=1.0)
+        actDCF.append(compute_empirical_Bayes_risk_binary(predicted_labels_mvg, LVAL, effPrior, 1.0, 1.0))
+
+        # I pass to the function the llr directly. No predictions to be made, we scan every possible score and we use it as a threshold
+        minDCF.append(compute_minDCF_binary_slow(LLR_mvg, LVAL, effPrior, 1.0, 1.0))
+    
+    matplotlib.pyplot.figure(0)
+    matplotlib.pyplot.plot(effPriorLogOdds, actDCF, label='actDCF MVG')
+    matplotlib.pyplot.plot(effPriorLogOdds, minDCF, label='minDCF MVG')
+    matplotlib.pyplot.ylim([0, 1.1])
+
+    # mvg tied
+
+    actDCF = []
+    minDCF = []
+
+    hParams_Tied = Gau_Tied_ML_estimates(DTR_pca, LTR)
+    LLR_tied = logpdf_GAU_ND(DVAL_pca, hParams_Tied[1][0], hParams_Tied[1][1]) - logpdf_GAU_ND(DVAL_pca, hParams_Tied[0][0], hParams_Tied[0][1])
+
+    for effPrior in effPriors:
+        predicted_labels_tied = compute_optimal_Bayes_binary_llr(LLR_tied, effPrior, Cfn=1.0, Cfp=1.0)
+        actDCF.append(compute_empirical_Bayes_risk_binary(predicted_labels_tied, LVAL, effPrior, 1.0, 1.0))
+
+        # I pass to the function the llr directly. No predictions to be made, we scan every possible score and we use it as a threshold
+        minDCF.append(compute_minDCF_binary_slow(LLR_tied, LVAL, effPrior, 1.0, 1.0))
+    
+    matplotlib.pyplot.plot(effPriorLogOdds, actDCF, label='actDCF Tied')
+    matplotlib.pyplot.plot(effPriorLogOdds, minDCF, label='minDCF Tied')
+    matplotlib.pyplot.ylim([0, 1.1])
+
+    # mvg naive
+
+    actDCF = []
+    minDCF = []
+
+    hParams_Naive = Gau_Naive_ML_estimates(DTR_pca, LTR)
+    LLR_naive = logpdf_GAU_ND(DVAL_pca, hParams_Naive[1][0], hParams_Naive[1][1]) - logpdf_GAU_ND(DVAL_pca, hParams_Naive[0][0], hParams_Naive[0][1])
+
+    for effPrior in effPriors:
+        predicted_labels_naive = compute_optimal_Bayes_binary_llr(LLR_naive, effPrior, Cfn=1.0, Cfp=1.0)
+        actDCF.append(compute_empirical_Bayes_risk_binary(predicted_labels_naive, LVAL, effPrior, 1.0, 1.0))
+
+        # I pass to the function the llr directly. No predictions to be made, we scan every possible score and we use it as a threshold
+        minDCF.append(compute_minDCF_binary_slow(LLR_naive, LVAL, effPrior, 1.0, 1.0))
+    
+    matplotlib.pyplot.plot(effPriorLogOdds, actDCF, label='actDCF Naive')
+    matplotlib.pyplot.plot(effPriorLogOdds, minDCF, label='minDCF Naive')
+    matplotlib.pyplot.ylim([0, 1.1])
+
+
+
+
+    matplotlib.pyplot.legend()
+    matplotlib.pyplot.show()
+
+
+
+
+
+
+
+    
+
     
