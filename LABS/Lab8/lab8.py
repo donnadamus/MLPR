@@ -1,21 +1,62 @@
-import numpy as np, numpy
-from scipy.optimize import fmin_l_bfgs_b
+import numpy
+import scipy.special
+import sklearn.datasets
 
-def func_v1(x):
-    return (x[0] + 3)**2 + np.sin(x[0]) + (x[1] + 1)**2
+def vcol(x):
+    return x.reshape((x.size, 1))
 
-def func_vfinal(x):
-    return (x[0] + 3)**2 + np.sin(x[0]) + (x[1] + 1)**2, np.array([2*(x[0]+3) + np.cos(x[0]), 2*(x[1]+1)])
+def vrow(x):
+    return x.reshape((1, x.size))
 
+def split_db_2to1(D, L, seed=0):
+    
+    nTrain = int(D.shape[1]*2.0/3.0)
+    numpy.random.seed(seed)
+    idx = numpy.random.permutation(D.shape[1])
+    idxTrain = idx[0:nTrain]
+    idxTest = idx[nTrain:]
+    
+    DTR = D[:, idxTrain]
+    DVAL = D[:, idxTest]
+    LTR = L[idxTrain]
+    LVAL = L[idxTest]
+    return (DTR, LTR), (DVAL, LVAL)
+
+def load_iris_binary():
+    D, L = sklearn.datasets.load_iris()['data'].T, sklearn.datasets.load_iris()['target']    
+    D = D[:, L != 0] # We remove setosa from D
+    L = L[L!=0] # We remove setosa from L
+    L[L==2] = 0 # We assign label 0 to virginica (was label 2)
+    return D, L
+
+# Optimize the logistic regression loss
+def trainLogRegBinary(DTR, LTR, l):
+
+    ZTR = LTR * 2.0 - 1.0 # We do it outside the objective function, since we only need to do it once
+
+    def logreg_obj_with_grad(v): # We compute both the objective and its gradient to speed up the optimization
+        w = v[:-1]
+        b = v[-1]
+        s = numpy.dot(vcol(w).T, DTR).ravel() + b
+
+        loss = numpy.logaddexp(0, -ZTR * s)
+
+        G = -ZTR / (1.0 + numpy.exp(ZTR * s))
+        GW = (vrow(G) * DTR).mean(1) + l * w.ravel()
+        Gb = G.mean()
+        # return objective and gradient
+        return loss.mean() + l / 2 * numpy.linalg.norm(w)**2, numpy.hstack([GW, numpy.array(Gb)])
+
+    # we select the index 0 to get the parameters w (4 dimensions) and b
+    vf = scipy.optimize.fmin_l_bfgs_b(logreg_obj_with_grad, x0 = numpy.zeros(DTR.shape[0]+1))[0]
+    print ("Log-reg - lambda = %e - J*(w, b) = %e" % (l, logreg_obj_with_grad(vf)[0]))
+    return vf[:-1], vf[-1]
 
 if __name__ == '__main__':
-    x, f, d = fmin_l_bfgs_b(func_v1, [0,0], approx_grad=True)
-    print(x)
-    print(f)
-    # print(d)
+    
+    D, L = load_iris_binary()
+    (DTR, LTR), (DVAL, LVAL) = split_db_2to1(D, L)
 
-    x, f, d = fmin_l_bfgs_b(func_vfinal, [0,0])
-
-    print(x)
-    print(f)
-    # print(d)
+    for lambda_val in [1e-3, 1e-1, 1.0]:
+        w, b = trainLogRegBinary(DTR, LTR, lambda_val) # Train model
+        sVal = numpy.dot(w.T, DVAL) + b # Compute validation scores
