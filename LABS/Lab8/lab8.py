@@ -52,6 +52,35 @@ def trainLogRegBinary(DTR, LTR, l):
     print ("Log-reg - lambda = %e - J*(w, b) = %e" % (l, logreg_obj_with_grad(vf)[0]))
     return vf[:-1], vf[-1]
 
+# Optimize the weighted logistic regression loss
+def trainWeightedLogRegBinary(DTR, LTR, l, pT):
+
+    ZTR = LTR * 2.0 - 1.0 # We do it outside the objective function, since we only need to do it once
+    
+    wTrue = pT / (ZTR>0).sum() # Compute the weights for the two classes
+    wFalse = (1-pT) / (ZTR<0).sum()
+
+    def logreg_obj_with_grad(v): # We compute both the objective and its gradient to speed up the optimization
+        w = v[:-1]
+        b = v[-1]
+        s = numpy.dot(vcol(w).T, DTR).ravel() + b
+
+        loss = numpy.logaddexp(0, -ZTR * s)
+        loss[ZTR>0] *= wTrue # Apply the weights to the loss computations
+        loss[ZTR<0] *= wFalse
+
+        G = -ZTR / (1.0 + numpy.exp(ZTR * s))
+        G[ZTR > 0] *= wTrue # Apply the weights to the gradient computations
+        G[ZTR < 0] *= wFalse
+        
+        GW = (vrow(G) * DTR).sum(1) + l * w.ravel()
+        Gb = G.sum()
+        return loss.sum() + l / 2 * numpy.linalg.norm(w)**2, numpy.hstack([GW, numpy.array(Gb)])
+
+    vf = scipy.optimize.fmin_l_bfgs_b(logreg_obj_with_grad, x0 = numpy.zeros(DTR.shape[0]+1))[0]
+    print ("Weighted Log-reg (pT %e) - lambda = %e - J*(w, b) = %e" % (pT, l, logreg_obj_with_grad(vf)[0]))
+    return vf[:-1], vf[-1]
+
 import bayesRisk # Laboratory 7
 
 if __name__ == '__main__':
@@ -66,7 +95,7 @@ if __name__ == '__main__':
         err = (PVAL != LVAL).sum() / float(LVAL.size)
         print ('Error rate: %.1f' % (err*100))
 
-        # adapt the model to different priors
+        # --- Compute validation scores in the form of log likelihood ratios, density over density ---
 
         # Compute empirical prior
         pEmp = (LTR == 1).sum() / LTR.size
@@ -74,6 +103,17 @@ if __name__ == '__main__':
         sValLLR = sVal - numpy.log(pEmp / (1-pEmp))
         print ('minDCF - pT = 0.5: %.4f' % bayesRisk.compute_minDCF_binary_fast(sValLLR, LVAL, 0.5, 1.0, 1.0))
         print ('actDCF - pT = 0.5: %.4f' % bayesRisk.compute_actDCF_binary_fast(sValLLR, LVAL, 0.5, 1.0, 1.0))
+
+        # --- Prior weighted logistic regression and calibration ---
+
+        pT = 0.8
+        w, b = trainWeightedLogRegBinary(DTR, LTR, lambda_val, pT = pT) # Train model to print the loss
+        sVal = numpy.dot(w.T, DVAL) + b
+        sValLLR = sVal - numpy.log(pT / (1-pT))
+        print ('minDCF - pT = 0.8: %.4f' % bayesRisk.compute_minDCF_binary_fast(sValLLR, LVAL, pT, 1.0, 1.0))
+        print ('actDCF - pT = 0.8: %.4f' % bayesRisk.compute_actDCF_binary_fast(sValLLR, LVAL, pT, 1.0, 1.0))
+        
+        print ()
         
 
         
