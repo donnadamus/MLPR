@@ -52,6 +52,8 @@ def trainLogRegBinary(DTR, LTR, l):
     print ("Log-reg - lambda = %e - J*(w, b) = %e" % (l, logreg_obj_with_grad(vf)[0]))
     return vf[:-1], vf[-1]
 
+import bayesRisk # Laboratory 7
+
 if __name__ == '__main__':
     
     D, L = load_iris_binary()
@@ -60,3 +62,18 @@ if __name__ == '__main__':
     for lambda_val in [1e-3, 1e-1, 1.0]:
         w, b = trainLogRegBinary(DTR, LTR, lambda_val) # Train model
         sVal = numpy.dot(w.T, DVAL) + b # Compute validation scores
+        PVAL = (sVal > 0) * 1 # Predict validation labels - sVal > 0 returns a boolean array, multiplying by 1 (integer) we get an integer array with 0's and 1's corresponding to the original True and False values
+        err = (PVAL != LVAL).sum() / float(LVAL.size)
+        print ('Error rate: %.1f' % (err*100))
+
+        # adapt the model to different priors
+
+        # Compute empirical prior
+        pEmp = (LTR == 1).sum() / LTR.size
+        # Compute LLR-like scores
+        sValLLR = sVal - numpy.log(pEmp / (1-pEmp))
+        print ('minDCF - pT = 0.5: %.4f' % bayesRisk.compute_minDCF_binary_fast(sValLLR, LVAL, 0.5, 1.0, 1.0))
+        print ('actDCF - pT = 0.5: %.4f' % bayesRisk.compute_actDCF_binary_fast(sValLLR, LVAL, 0.5, 1.0, 1.0))
+        
+
+        
