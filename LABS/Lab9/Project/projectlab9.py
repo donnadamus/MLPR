@@ -2,6 +2,8 @@ import numpy as np, numpy
 import scipy.special
 import sklearn.datasets
 import bayesRisk
+import matplotlib.pyplot as plt
+
 
 
 def vcol(x):
@@ -134,12 +136,7 @@ if __name__ == '__main__':
 
     (DTR, LTR), (DVAL, LVAL) = split_db_2to1(dataset, labels)
 
-    # use fraction of data
-
-    DTR = DTR[::50]
-    LTR = LTR[::50]
-
-    C_vals = np.logspace(-5, 0, 11) # from 10^-5 to 10^11
+    C_vals = np.logspace(-5, 0, 11) # from 10^-5 to 10^0
 
     K = 1.0
 
@@ -157,5 +154,181 @@ if __name__ == '__main__':
     # If C is low, we can say that we are not adding much penalty to missclassifications.
     # It allows us to have a model that generalizes better, even if that means having some missclassified point
 
+    """
+
+    list_minDCF = []
+    list_actDCF = []
+
     for C in C_vals:
+        w, b = train_dual_SVM_linear(DTR, LTR, C, K)
+        SVAL = (vrow(w) @ DVAL + b).ravel()
+        PVAL = (SVAL > 0) * 1
+        err = (PVAL != LVAL).sum() / float(LVAL.size)
+        minDCF = bayesRisk.compute_minDCF_binary_fast(SVAL, LVAL, effPrior, 1.0, 1.0)
+        actDCF = bayesRisk.compute_actDCF_binary_fast(SVAL, LVAL, effPrior, 1.0, 1.0)
+        list_minDCF.append(minDCF)
+        list_actDCF.append(actDCF)
+        print ('Error rate: %.1f' % (err*100))
+        print ('minDCF - pT = 0.1: %.4f' % minDCF)
+        print ('actDCF - pT = 0.1: %.4f' % actDCF)
+        print ()
+
+    plt.figure()
+    # Plot the Bayes error plot
+    plt.figure(figsize=(10, 6))
+    plt.plot(C_vals, list_actDCF, label='actDCF', color='r')
+    plt.plot(C_vals, list_minDCF, label='minDCF', color='b')
+    plt.xscale('log', base=10)  # Usa scala logaritmica per l'asse x
+    plt.ylim([0, 1.1])  # Limiti dell'asse y tra 0 e 1.1
+    plt.xlabel('C')
+    plt.ylabel('Normalized DCF')
+    plt.legend()
+    plt.show()
+
+    """
+    
+
+    """
+
+    # ----- now center the data -----
+
+    # Compute the mean of each feature in the training set (DTR)
+    mean_DTR = np.mean(DTR, axis=1, keepdims=True)  # Calculate the mean across each feature (row-wise)
+
+    # Center the training set (DTR)
+    DTR = DTR - mean_DTR
+
+    # Center the validation set (DVAL) using the same mean calculated from the training set
+    DVAL = DVAL - mean_DTR
+
+
+    list_minDCF = []
+    list_actDCF = []
+
+    for C in C_vals:
+        w, b = train_dual_SVM_linear(DTR, LTR, C, K)
+        SVAL = (vrow(w) @ DVAL + b).ravel()
+        PVAL = (SVAL > 0) * 1
+        err = (PVAL != LVAL).sum() / float(LVAL.size)
+        minDCF = bayesRisk.compute_minDCF_binary_fast(SVAL, LVAL, effPrior, 1.0, 1.0)
+        actDCF = bayesRisk.compute_actDCF_binary_fast(SVAL, LVAL, effPrior, 1.0, 1.0)
+        list_minDCF.append(minDCF)
+        list_actDCF.append(actDCF)
+        print ('Error rate: %.1f' % (err*100))
+        print ('minDCF - pT = 0.1: %.4f' % minDCF)
+        print ('actDCF - pT = 0.1: %.4f' % actDCF)
+        print ()
+
+    plt.figure()
+    # Plot the Bayes error plot
+    plt.figure(figsize=(10, 6))
+    plt.plot(C_vals, list_actDCF, label='actDCF', color='r')
+    plt.plot(C_vals, list_minDCF, label='minDCF', color='b')
+    plt.xscale('log', base=10)  # Usa scala logaritmica per l'asse x
+    plt.ylim([0, 1.1])  # Limiti dell'asse y tra 0 e 1.1
+    plt.xlabel('C')
+    plt.ylabel('Normalized DCF')
+    plt.legend()
+    plt.show()
+
+    """
+
+    # POLYNOMIAL KERNEL
+
+    """
+
+    kernelFunc = polyKernel(2, 1)
+    eps = 0
+    list_minDCF = []
+    list_actDCF = []
+
+    for C in C_vals:
+        fScore = train_dual_SVM_kernel(DTR, LTR, C, kernelFunc, eps)
+        SVAL = fScore(DVAL)
+        PVAL = (SVAL > 0) * 1
+        err = (PVAL != LVAL).sum() / float(LVAL.size)
+        minDCF = bayesRisk.compute_minDCF_binary_fast(SVAL, LVAL, effPrior, 1.0, 1.0)
+        actDCF = bayesRisk.compute_actDCF_binary_fast(SVAL, LVAL, effPrior, 1.0, 1.0)
+        list_minDCF.append(minDCF)
+        list_actDCF.append(actDCF)
+        print ('Error rate: %.1f' % (err*100))
+        print ('minDCF - pT = 0.1: %.4f' % minDCF)
+        print ('actDCF - pT = 0.1: %.4f' % actDCF)
+        print ()
+
+    plt.figure()
+    # Plot the Bayes error plot
+    plt.figure(figsize=(10, 6))
+    plt.plot(C_vals, list_actDCF, label='actDCF', color='r')
+    plt.plot(C_vals, list_minDCF, label='minDCF', color='b')
+    plt.xscale('log', base=10)  # Usa scala logaritmica per l'asse x
+    plt.ylim([0, 1.1])  # Limiti dell'asse y tra 0 e 1.1
+    plt.xlabel('C')
+    plt.ylabel('Normalized DCF')
+    plt.legend()
+    plt.show()
+
+    """
+
+    # RBF KERNEL
+
+    gammas = [np.exp(-4), np.exp(-3), np.exp(-2), np.exp(-1)]
+    C_vals = np.logspace(-3, 2, 11) # from 10^-3 to 10^2
+    eps = 1
+
+    # each element represents a value of gamma
+    list_minDCF = [[], [], [], []]
+    list_actDCF = [[], [], [], []]
+
+    indexDCF = 0
+
+    for gamma in gammas:
+        kernelFunc = rbfKernel(gamma)
+        print("-------- gamma %f --------" % gamma)
+        for C in C_vals:
+            fScore = train_dual_SVM_kernel(DTR, LTR, C, kernelFunc, eps)
+            SVAL = fScore(DVAL)
+            PVAL = (SVAL > 0) * 1
+            err = (PVAL != LVAL).sum() / float(LVAL.size)
+            minDCF = bayesRisk.compute_minDCF_binary_fast(SVAL, LVAL, effPrior, 1.0, 1.0)
+            actDCF = bayesRisk.compute_actDCF_binary_fast(SVAL, LVAL, effPrior, 1.0, 1.0)
+            list_minDCF[indexDCF].append(minDCF)
+            list_actDCF[indexDCF].append(actDCF)
+            print ('Error rate: %.1f' % (err*100))
+            print ('minDCF - pT = 0.1: %.4f' % minDCF)
+            print ('actDCF - pT = 0.1: %.4f' % actDCF)
+            print ()
+        indexDCF+=1
+
+
+
+    plt.figure()
+    # Plot the Bayes error plot
+    plt.figure(figsize=(10, 6))
+    plt.plot(C_vals, list_actDCF[0], label=('actDCF, gamma e^-4'), color='r')
+    plt.plot(C_vals, list_minDCF[0], label=('minDCF, gamma e^-4'), color='r')
+
+    plt.plot(C_vals, list_actDCF[1], label=('actDCF, gamma e^-3'), color='b')
+    plt.plot(C_vals, list_minDCF[1], label=('minDCF, gamma e^-3'), color='b')
+
+    plt.plot(C_vals, list_actDCF[2], label=('actDCF, gamma e^-2'), color='y')
+    plt.plot(C_vals, list_minDCF[2], label=('minDCF, gamma e^-2'), color='y')
+
+    plt.plot(C_vals, list_actDCF[3], label=('actDCF, gamma e^-1'), color='g')
+    plt.plot(C_vals, list_minDCF[3], label=('minDCF, gamma e^-1'), color='g')
+
+    plt.xscale('log', base=10)  # Usa scala logaritmica per l'asse x
+    plt.ylim([0, 1.1])  # Limiti dell'asse y tra 0 e 1.1
+    plt.xlabel('C')
+    plt.ylabel('Normalized DCF')
+    plt.legend()
+    plt.show()
+
+
+
+
+
+
+
+
 
