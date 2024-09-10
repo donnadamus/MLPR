@@ -160,7 +160,7 @@ def plot_histPCADirections(D, L, numdirections):
 
 if __name__ == '__main__':
     dataset, labels = load("trainData.txt")
-    
+
     """
     
     # --- First question (APPLY PCA) ---
@@ -174,34 +174,37 @@ if __name__ == '__main__':
     # compared to the other directions (although it's not the goal of PCA)
     
     """
-    
+
     """
     
     # --- Second question (APPLY LDA) ---
     
-    W = LDA(dataset, labels, 1, 6)
+    W = LDA(dataset, labels, 1, 6) # 1 is numdirections, 6 is the number of features of the dataset
     datasetLDA = Projection(W, dataset)
     plot_hist(datasetLDA, labels)
     
     # The classes overlap but there's a better separation
     # compared to the histograms of lab2
-    
+
     """
+    
     
     # DTR and LTR are model training data and labels
     # DVAL and LVAL are validation data and labels
     
     (DTR, LTR), (DVAL, LVAL) = split_db_2to1(dataset, labels)
+
+    """
     
     # --- Third question ---
     
     # The following code builds an LDA classifier (no PCA)
     
-    W = LDA(DTR, LTR, 1, 6) # LDA directions training set
+    W = LDA(DTR, LTR, 1, 6) # LDA directions training set, 1 is numdirections, 6 is the number of features of the dataset
     DPTR = Projection(W, DTR)
     DPVA = Projection(W, DVAL)
-    plot_hist(DPTR, LTR)
-    plot_hist(DPVA, LVAL)
+    # plot_hist(DPTR, LTR)
+    # plot_hist(DPVA, LVAL)
     
     # calculate the threshold that we will use to perform inference
     # based on the mean of the classes after applying LDA on the training set
@@ -221,6 +224,8 @@ if __name__ == '__main__':
     # Error rate is equal to 9.30%
     
     print("Error rate: ", errors / LVAL.size * 100)
+
+
     
     # --- Fourth question ---
     
@@ -239,6 +244,8 @@ if __name__ == '__main__':
     # Error rate is equal to 9.30%
     
     print("Error rate: ", errors / LVAL.size * 100)
+
+    """
     
     # --- Fifth question ---
     
@@ -247,9 +254,12 @@ if __name__ == '__main__':
     P = PCA(DTR, DTR.shape[1], numdirections)
     DTRPCA = Projection(P, DTR)
     DVALPCA = Projection(P, DVAL)
-    W = LDA(DTRPCA, LTR, 1, numdirections)
+    W = -LDA(DTRPCA, LTR, 1, numdirections)
     DTRPCALDA = Projection(W, DTRPCA)
     DVALPCALDA = Projection(W, DVALPCA)
+
+    print("Mean for class False: ", DTRPCALDA[0, LTR==0].mean())
+    print("Mean for class True: ", DTRPCALDA[0, LTR==1].mean())
     
     threshold = (DTRPCALDA[0, LTR==0].mean() + DTRPCALDA[0, LTR==1].mean()) / 2.0
     
@@ -271,7 +281,6 @@ if __name__ == '__main__':
     # Pay attention at the mean of the False class and the mean of 
     # the True class, we want the False class being smaller, 
     # because of how we solved the problem
-    
     
     
     
