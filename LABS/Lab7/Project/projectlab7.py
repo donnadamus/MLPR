@@ -198,11 +198,11 @@ if __name__ == '__main__':
 
     (DTR, LTR), (DVAL, LVAL) = split_db_2to1(dataset, labels)
 
-    """
-
     # ----------- NO PCA APPLIED -----------
 
     # the NO PCA results have been verified and are correct
+
+    """
 
     print('\n ----------- NO PCA APPLIED ----------- \n')
 
@@ -252,6 +252,10 @@ if __name__ == '__main__':
 
         loss_naive = (actual_dcf_naive - minDCF_naive) / minDCF_naive * 100
         print("DCF Loss (Naive): ", loss_naive)
+
+    """
+
+    """
 
     # ----------- PCA APPLIED -----------
 
@@ -315,12 +319,12 @@ if __name__ == '__main__':
             print("DCF Loss (Naive): ", loss_naive)
     
     """
-    
+
     # ----------- Bayes error plots -----------
 
     # TODO check this part also
 
-    m = 1 # pca directions that gave the best results in the previous step
+    m = 5 # pca directions that gave the best results in the previous step
 
     effPriorLogOdds = numpy.linspace(-4, 4, 21)
     effPriors = 1.0 / (1.0 + numpy.exp(-effPriorLogOdds))   # get the corresponding priors
@@ -334,6 +338,8 @@ if __name__ == '__main__':
     minDCF = []
 
     # we run this for 3 times (not optimal, we do it to simplify code)
+
+    """
 
     # standard mvg
 
@@ -352,6 +358,13 @@ if __name__ == '__main__':
     matplotlib.pyplot.plot(effPriorLogOdds, minDCF, label='minDCF MVG')
     matplotlib.pyplot.ylim([0, 1.1])
 
+    matplotlib.pyplot.legend()
+    matplotlib.pyplot.show()
+
+    """
+
+    """
+
     # mvg tied
 
     actDCF = []
@@ -367,9 +380,16 @@ if __name__ == '__main__':
         # I pass to the function the llr directly. No predictions to be made, we scan every possible score and we use it as a threshold
         minDCF.append(compute_minDCF_binary_slow(LLR_tied, LVAL, effPrior, 1.0, 1.0))
     
+    matplotlib.pyplot.figure(1)
     matplotlib.pyplot.plot(effPriorLogOdds, actDCF, label='actDCF Tied')
     matplotlib.pyplot.plot(effPriorLogOdds, minDCF, label='minDCF Tied')
     matplotlib.pyplot.ylim([0, 1.1])
+
+    matplotlib.pyplot.legend()
+    matplotlib.pyplot.show()
+    
+
+    """
 
     # mvg naive
 
@@ -385,18 +405,14 @@ if __name__ == '__main__':
 
         # I pass to the function the llr directly. No predictions to be made, we scan every possible score and we use it as a threshold
         minDCF.append(compute_minDCF_binary_slow(LLR_naive, LVAL, effPrior, 1.0, 1.0))
-    
+
+    matplotlib.pyplot.figure(2)
     matplotlib.pyplot.plot(effPriorLogOdds, actDCF, label='actDCF Naive')
     matplotlib.pyplot.plot(effPriorLogOdds, minDCF, label='minDCF Naive')
     matplotlib.pyplot.ylim([0, 1.1])
 
-
-
-
     matplotlib.pyplot.legend()
     matplotlib.pyplot.show()
-
-
 
 
 
