@@ -184,9 +184,8 @@ if __name__ == '__main__':
     plt.ylabel('Normalized DCF')
     plt.legend()
     plt.show()
-
-    """
     
+    """
 
     """
 
@@ -231,11 +230,9 @@ if __name__ == '__main__':
     plt.legend()
     plt.show()
 
-    """
-
     # POLYNOMIAL KERNEL
 
-    """
+
 
     kernelFunc = polyKernel(2, 1)
     eps = 0
@@ -323,7 +320,6 @@ if __name__ == '__main__':
     plt.ylabel('Normalized DCF')
     plt.legend()
     plt.show()
-
 
 
 
