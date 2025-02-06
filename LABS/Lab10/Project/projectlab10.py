@@ -1,6 +1,7 @@
 import gmm
 import utils
 import gaussian
+import evaluation
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -25,14 +26,19 @@ if __name__ == '__main__':
 
     for i in [2, 4, 8, 16, 32]:
         for j in [2, 4, 8, 16, 32]:
-            gmm_c0 = gmm.train_GMM_LBG_EM(data_c0, i, covType='full', psiEig=0.01, epsLLAverage=1e-6, lbgAlpha=0.1, verbose=True)
-            gmm_c1 = gmm.train_GMM_LBG_EM(data_c1, j, covType='full', psiEig=0.01, epsLLAverage=1e-6, lbgAlpha=0.1, verbose=True)
+            gmm_c0 = gmm.train_GMM_LBG_EM(data_c0, i, covType='full', psiEig=0.01, epsLLAverage=1e-6, lbgAlpha=0.1,
+                                          verbose=True)
+            gmm_c1 = gmm.train_GMM_LBG_EM(data_c1, j, covType='full', psiEig=0.01, epsLLAverage=1e-6, lbgAlpha=0.1,
+                                          verbose=True)
 
             ll0 = gmm.logpdf_GMM(DVAL, gmm_c0)
             ll1 = gmm.logpdf_GMM(DVAL, gmm_c1)
 
             ratio = gaussian.llr(ll1, ll0)
             eff_prior = 0.1
+
+            log_prior_ratio = np.log(eff_prior) - np.log(1 - eff_prior)
+            ratio += log_prior_ratio
 
             predictions = evaluation.optimal_bayes_decision(ratio, eff_prior, 1, 1)
             confusion_matrix = evaluation.compute_confusion_matrix(predictions, LVAL)
